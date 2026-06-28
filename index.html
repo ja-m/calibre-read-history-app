@@ -1,12 +1,626 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Read History</title>
-  <meta http-equiv="refresh" content="0;url=calibre-read-history-app.html" />
+  <title>Calibre Read History</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+  <style>
+    :root, [data-theme="light"] {
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+      --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
+      --space-12: 3rem; --space-16: 4rem;
+      --color-bg: #f7f6f2; --color-surface: #f9f8f5; --color-surface-2: #fbfbf9;
+      --color-surface-offset: #f3f0ec; --color-surface-dynamic: #e6e4df;
+      --color-divider: #dcd9d5; --color-border: #d4d1ca;
+      --color-text: #28251d; --color-text-muted: #7a7974; --color-text-faint: #bab9b4;
+      --color-text-inverse: #f9f8f4; --color-primary: #01696f; --color-primary-hover: #0c4e54;
+      --color-primary-highlight: #cedcd8; --color-success: #437a22; --color-warning: #964219;
+      --radius-sm: 0.375rem; --radius-md: 0.5rem; --radius-lg: 0.75rem; --radius-xl: 1rem; --radius-full: 9999px;
+      --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06); --shadow-md: 0 4px 12px oklch(0.2 0.01 80 / 0.08);
+      --transition-interactive: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --font-body: 'Satoshi', Inter, sans-serif;
+      --content-wide: 1200px;
+    }
+    [data-theme="dark"] {
+      --color-bg: #171614; --color-surface: #1c1b19; --color-surface-2: #201f1d;
+      --color-surface-offset: #1d1c1a; --color-surface-dynamic: #2d2c2a; --color-divider: #262523;
+      --color-border: #393836; --color-text: #cdccca; --color-text-muted: #a4a39f; --color-text-faint: #797876;
+      --color-text-inverse: #2b2a28; --color-primary: #4f98a3; --color-primary-hover: #227f8b;
+      --color-primary-highlight: #313b3b; --color-success: #6daa45; --color-warning: #bb653b;
+      --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2); --shadow-md: 0 4px 12px oklch(0 0 0 / 0.3);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+    body { min-height: 100dvh; line-height: 1.6; font-family: var(--font-body); font-size: var(--text-base); color: var(--color-text); background: var(--color-bg); }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; border: none; background: none; }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: var(--radius-sm); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100dvh; }
+    .sidebar { background: var(--color-surface); border-right: 1px solid oklch(from var(--color-text) l c h / 0.12); padding: var(--space-6); display:flex; flex-direction:column; gap:var(--space-6); }
+    .brand { display:flex; align-items:center; gap:var(--space-3); }
+    .brand svg { width: 34px; height: 34px; color: var(--color-primary); }
+    .brand-title { font-size: var(--text-lg); font-weight: 700; }
+    .brand-sub { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .nav-card, .main-card, .stats-card, .upload-card { background: var(--color-surface-2); border: 1px solid oklch(from var(--color-text) l c h / 0.10); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); }
+    .nav-card, .upload-card { padding: var(--space-4); }
+    .nav-title, .card-title { font-size: var(--text-sm); font-weight: 700; margin-bottom: var(--space-3); }
+    .nav-list { display:flex; flex-direction:column; gap:var(--space-2); }
+    .nav-link { display:flex; align-items:center; gap:var(--space-3); min-height:44px; padding: 0 var(--space-3); border-radius: var(--radius-lg); color: var(--color-text-muted); text-decoration:none; }
+    .nav-link.active, .nav-link:hover { background: var(--color-primary-highlight); color: var(--color-text); }
+    .main { padding: var(--space-6); display:flex; flex-direction:column; gap:var(--space-6); }
+    .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-4); }
+    .headline h1 { font-size: var(--text-xl); line-height: 1.1; }
+    .headline p { color: var(--color-text-muted); max-width: 65ch; margin-top: var(--space-2); }
+    .toolbar { display:flex; gap:var(--space-3); align-items:center; flex-wrap:wrap; }
+    .btn { min-height:44px; padding: 0 var(--space-4); border-radius: var(--radius-lg); border:1px solid oklch(from var(--color-text) l c h / 0.12); background: var(--color-surface); }
+    .btn-primary { background: var(--color-primary); color: var(--color-text-inverse); border-color: transparent; }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-ghost:hover { background: var(--color-surface-offset); }
+    .grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+    .stats-card { padding: var(--space-4); }
+    .stats-label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .stats-value { font-size: var(--text-lg); font-weight: 700; margin-top: var(--space-2); font-variant-numeric: tabular-nums lining-nums; }
+    .panel { display:grid; grid-template-columns: 320px 1fr; gap: var(--space-4); }
+    .main-card { padding: var(--space-5); }
+    .filters { display:flex; flex-direction:column; gap:var(--space-4); }
+    .field { display:flex; flex-direction:column; gap:var(--space-2); }
+    .field label { font-size: var(--text-sm); font-weight: 600; }
+    .field small { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .input, .select, .textarea { width:100%; min-height:44px; border-radius: var(--radius-lg); border:1px solid oklch(from var(--color-text) l c h / 0.12); background: var(--color-bg); padding: 0 var(--space-3); }
+    .textarea { min-height: 220px; padding: var(--space-3); resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+    .hint { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .status-row { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+    .badge { display:inline-flex; align-items:center; min-height:32px; padding: 0 var(--space-3); border-radius: var(--radius-full); background: var(--color-primary-highlight); color: var(--color-text); font-size: var(--text-xs); }
+    .table-wrap { overflow:auto; border-radius: var(--radius-lg); border:1px solid oklch(from var(--color-text) l c h / 0.10); }
+    table { width:100%; border-collapse: collapse; font-variant-numeric: tabular-nums lining-nums; }
+    th, td { text-align:left; padding: 0.9rem 1rem; border-bottom:1px solid oklch(from var(--color-text) l c h / 0.08); }
+    th { position:sticky; top:0; background: var(--color-surface); font-size: var(--text-xs); text-transform:uppercase; letter-spacing:0.06em; color: var(--color-text-muted); }
+    tbody tr:hover { background: color-mix(in oklab, var(--color-primary) 4%, var(--color-surface-2)); }
+    .book-title { font-weight: 700; }
+    .meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .empty { padding: var(--space-10); text-align:center; color: var(--color-text-muted); }
+    .footer-note { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .split { display:flex; justify-content:space-between; gap:var(--space-4); align-items:center; margin-bottom: var(--space-4); }
+    .search-row { display:flex; gap:var(--space-3); flex-wrap:wrap; margin-bottom: var(--space-4); }
+    .search-row .field { flex:1 1 220px; }
+    .switcher { min-width:44px; min-height:44px; display:grid; place-items:center; }
+    .mobile-only { display:none; }
+    @media (max-width: 1024px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { border-right:none; border-bottom: 1px solid oklch(from var(--color-text) l c h / 0.12); }
+      .panel { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .main, .sidebar { padding: var(--space-4); }
+      .topbar, .split { flex-direction:column; align-items:stretch; }
+      th, td { padding: 0.75rem; }
+      .mobile-only { display:inline-flex; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; scroll-behavior:auto !important; }
+    }
+  </style>
 </head>
 <body>
-  <p>Die Seite wird weitergeleitet. Wenn nicht, <a href="calibre-read-history-app.html">hier klicken</a>.</p>
+  <a class="sr-only" href="#main-content">Zum Inhalt springen</a>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand" aria-label="Calibre Read History Logo">
+        <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <rect x="7" y="10" width="50" height="44" rx="12" stroke="currentColor" stroke-width="4"></rect>
+          <path d="M20 20h20c6.627 0 12 5.373 12 12v0c0 6.627-5.373 12-12 12H20" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+          <path d="M20 20v24" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+          <circle cx="39" cy="32" r="4" fill="currentColor"></circle>
+        </svg>
+        <div>
+          <div class="brand-title">Read History</div>
+          <div class="brand-sub">Calibre-Web Lesestatus lokal prüfen</div>
+        <div class="brand-sub" id="appVersion">Version 1.1.0</div>
+        </div>
+      </div>
+
+      <div class="nav-card">
+        <div class="nav-title">Ansichten</div>
+        <div class="nav-list">
+          <a class="nav-link active" href="#dashboard">Gelesene Bücher</a>
+          <a class="nav-link" href="#import">Import-Hilfe</a>
+        </div>
+      </div>
+
+      <div class="upload-card" id="import">
+        <div class="card-title">Dateien laden</div>
+        <div class="filters">
+          <div class="field">
+            <label for="appDbFile">app.db</label>
+            <input class="input" id="appDbFile" type="file" accept=".db,.sqlite,.sqlite3" />
+            <small>Calibre-Web App-Datenbank mit User-Status.</small>
+          </div>
+          <div class="field">
+            <label for="metadataDbFile">metadata.db, optional</label>
+            <input class="input" id="metadataDbFile" type="file" accept=".db,.sqlite,.sqlite3" />
+            <small>Für Titel, Autor, Serie und weitere Buchdaten.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="upload-card">
+        <div class="card-title">Auswertung starten</div>
+        <p class="hint">Nachdem du app.db und optional metadata.db gewählt hast, starte die Analyse manuell.</p>
+        <div class="toolbar" style="margin-top: var(--space-3);">
+          <button class="btn btn-primary" id="runBtn">Auswertung starten</button>
+          <button class="btn btn-ghost" id="clearBtn">Zurücksetzen</button>
+        </div>
+      </div>
+
+      <p class="footer-note">Alles läuft rein lokal im Browser. Keine API, kein Server, keine persistente Speicherung.</p>
+    </aside>
+
+    <main class="main" id="main-content">
+      <div class="topbar">
+        <div class="headline">
+          <h1>Gelesene Bücher pro Nutzer</h1>
+          <p>Die App liest eine lokale <strong>app.db</strong> und optional eine Calibre-<strong>metadata.db</strong>. Sie sucht typische Tabellen- und Spaltennamen für Lesestatus, Read-Date, User und Buch-ID und zeigt daraus eine gefilterte Übersicht an.</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn switcher" data-theme-toggle aria-label="Zu dunklem Modus wechseln">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <section class="grid" aria-label="Kennzahlen">
+        <article class="stats-card">
+          <div class="stats-label">Nutzer</div>
+          <div class="stats-value" id="statUsers">0</div>
+        </article>
+        <article class="stats-card">
+          <div class="stats-label">Gelesene Einträge</div>
+          <div class="stats-value" id="statReads">0</div>
+        </article>
+        <article class="stats-card">
+          <div class="stats-label">Mit Buchdetails</div>
+          <div class="stats-value" id="statDetails">0</div>
+        </article>
+      </section>
+
+      <section class="panel" id="dashboard">
+        <article class="main-card">
+          <div class="split">
+            <div>
+              <h2 class="card-title">Filter</h2>
+              <p class="hint">Wähle Nutzer, suche nach Titel oder Autor und sortiere nach Lesedatum.</p>
+            </div>
+          </div>
+          <div class="filters">
+            <div class="field">
+              <label for="userSelect">Nutzer</label>
+              <select class="select" id="userSelect"></select>
+            </div>
+            <div class="field">
+              <label for="searchInput">Suche</label>
+              <input class="input" id="searchInput" type="search" placeholder="Titel, Autor, Serie …" />
+            </div>
+            <div class="field">
+              <label for="sortSelect">Sortierung</label>
+              <select class="select" id="sortSelect">
+                <option value="read_desc">Lesedatum neu → alt</option>
+                <option value="read_asc">Lesedatum alt → neu</option>
+                <option value="title_asc">Titel A → Z</option>
+                <option value="author_asc">Autor A → Z</option>
+              </select>
+            </div>
+            <div class="status-row" id="statusBadges"></div>
+          </div>
+        </article>
+
+        
+      </section>
+
+      <section class="main-card">
+        <div class="split">
+          <div>
+            <h2 class="card-title">Leseliste</h2>
+            <p class="hint" id="tableInfo">Noch keine Daten geladen.</p>
+          </div>
+          <div class="toolbar mobile-only">
+            <button class="btn btn-ghost" onclick="window.scrollTo({top:0, behavior:'smooth'})">Nach oben</button>
+          </div>
+        </div>
+        <div class="search-row">
+          <div class="field">
+            <label for="fromDate">Von</label>
+            <input class="input" id="fromDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="toDate">Bis</label>
+            <input class="input" id="toDate" type="date" />
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nutzer</th>
+                <th>Buch</th>
+                <th>Autor</th>
+                <th>Serie</th>
+                <th>Gelesen am</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+          <div class="empty" id="emptyState">Bitte app.db laden oder Demo starten.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js" defer></script>
+  <script>
+    (() => {
+      const state = {
+        entries: [],
+        metadata: new Map(),
+        userMap: new Map(),
+        activeUser: '__all__',
+        search: '',
+        sort: 'read_desc',
+        fromDate: '',
+        toDate: '',
+        theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      };
+
+      const els = {
+        appDbFile: document.getElementById('appDbFile'),
+        metadataDbFile: document.getElementById('metadataDbFile'),
+        userSelect: document.getElementById('userSelect'),
+        searchInput: document.getElementById('searchInput'),
+        sortSelect: document.getElementById('sortSelect'),
+        fromDate: document.getElementById('fromDate'),
+        toDate: document.getElementById('toDate'),
+        resultsBody: document.getElementById('resultsBody'),
+        emptyState: document.getElementById('emptyState'),
+        tableInfo: document.getElementById('tableInfo'),
+        statUsers: document.getElementById('statUsers'),
+        statReads: document.getElementById('statReads'),
+        statDetails: document.getElementById('statDetails'),
+        statusBadges: document.getElementById('statusBadges'),
+        runBtn: document.getElementById('runBtn'),
+        clearBtn: document.getElementById('clearBtn'),
+        themeToggle: document.querySelector('[data-theme-toggle]')
+      };
+
+      document.documentElement.setAttribute('data-theme', state.theme);
+      const themeIcon = (mode) => mode === 'dark'
+        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>'
+        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+      const syncTheme = () => {
+        document.documentElement.setAttribute('data-theme', state.theme);
+        els.themeToggle.innerHTML = themeIcon(state.theme);
+        els.themeToggle.setAttribute('aria-label', state.theme === 'dark' ? 'Zu hellem Modus wechseln' : 'Zu dunklem Modus wechseln');
+      };
+      syncTheme();
+      els.themeToggle.addEventListener('click', () => { state.theme = state.theme === 'dark' ? 'light' : 'dark'; syncTheme(); });
+
+      function toTitleCase(str) {
+        return String(str || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      }
+
+      function normalizeDate(value) {
+        if (value == null || value === '') return '';
+        if (typeof value === 'number') {
+          if (value > 1000000000 && value < 99999999999) return new Date(value * 1000).toISOString().slice(0, 19).replace('T', ' ');
+          if (value >= 1000000000000) return new Date(value).toISOString().slice(0, 19).replace('T', ' ');
+        }
+        const str = String(value).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+          if (str.startsWith('0001-')) return '';
+          return str.replace('T', ' ').slice(0, 19);
+        }
+        const parsed = Date.parse(str);
+        if (Number.isNaN(parsed)) return str;
+        const d = new Date(parsed);
+        if (d.getFullYear && d.getFullYear() < 1900) return '';
+        return d.toISOString().slice(0, 19).replace('T', ' ');
+      }
+
+      function sqlRows(db, query) {
+        try {
+          const res = db.exec(query);
+          if (!res.length) return [];
+          const cols = res[0].columns;
+          return res[0].values.map(row => Object.fromEntries(cols.map((c, i) => [c, row[i]])));
+        } catch {
+          return [];
+        }
+      }
+
+      function listTables(db) {
+        return sqlRows(db, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map(r => r.name);
+      }
+
+      function tableColumns(db, table) {
+        return sqlRows(db, `PRAGMA table_info(${JSON.stringify(table).slice(1,-1)})`).map(r => ({ name: r.name, type: r.type }));
+      }
+
+      function findFirst(list, patterns) {
+        return list.find(item => patterns.some(p => p.test(item))) || null;
+      }
+
+      function buildMetadataMap(db) {
+        const tables = new Set(listTables(db));
+        if (!tables.has('books')) return new Map();
+        const books = sqlRows(db, 'SELECT id, title, path FROM books');
+        const authors = tables.has('authors') ? sqlRows(db, 'SELECT id, name, sort FROM authors') : [];
+        const series = tables.has('series') ? sqlRows(db, 'SELECT id, name FROM series') : [];
+        const linkAuthors = tables.has('books_authors_link') ? sqlRows(db, 'SELECT book, author FROM books_authors_link') : [];
+        const linkSeries = tables.has('books_series_link') ? sqlRows(db, 'SELECT book, series FROM books_series_link') : [];
+        const authorMap = new Map(authors.map(a => [a.id, a.name || a.sort || '']));
+        const seriesMap = new Map(series.map(s => [s.id, s.name || '']));
+        const authorsByBook = new Map();
+        linkAuthors.forEach(row => {
+          const arr = authorsByBook.get(row.book) || [];
+          const name = authorMap.get(row.author);
+          if (name) arr.push(name);
+          authorsByBook.set(row.book, arr);
+        });
+        const seriesByBook = new Map();
+        linkSeries.forEach(row => {
+          const name = seriesMap.get(row.series);
+          if (name) seriesByBook.set(row.book, name);
+        });
+        return new Map(books.map(b => [b.id, { title: b.title || `Buch ${b.id}`, authors: (authorsByBook.get(b.id) || []).join(', '), series: seriesByBook.get(b.id) || '', path: b.path || '' }]));
+      }
+
+      function buildUserMap(db) {
+        const tables = new Set(listTables(db));
+        if (!tables.has('user')) return new Map();
+        const users = sqlRows(db, 'SELECT id, name, email FROM user');
+        return new Map(users.map(u => [String(u.id), u.name || u.email || `User ${u.id}`]));
+      }
+
+      function detectReadEntries(db) {
+        const tables = listTables(db);
+        const candidates = [];
+        for (const table of tables) {
+          const tl = table.toLowerCase();
+          // Skip Kobo-specific tables by default to avoid false positives from device sync tables
+          if (tl.startsWith('kobo_')) continue;
+          const cols = tableColumns(db, table).map(c => c.name);
+          const lower = cols.map(c => c.toLowerCase());
+          // Prefer date/time-like columns for read timestamps (exclude boolean `is_read`)
+          const readCol = findFirst(lower, [/^read$/, /read.*(date|at|time)/, /(date|timestamp).*(read|finish|complete)/]);
+          const userCol = findFirst(lower, [/user/, /username/, /name/]);
+          const bookCol = findFirst(lower, [/book_id/, /^book$/, /books_id/, /id_book/]);
+          // Status-like columns: prefer explicit read_status or boolean is_read
+          let statusCol = findFirst(lower, [/read_status/, /status/, /state/, /progress/, /(is_)?read/]);
+          if ((readCol || statusCol) && (userCol || tl.includes('read') || tl.includes('user')) && (bookCol || tl.includes('book'))) {
+            candidates.push({ table, cols, lower, readCol, userCol, bookCol, statusCol });
+          }
+        }
+
+        const results = [];
+        for (const cand of candidates) {
+          const rows = sqlRows(db, `SELECT * FROM "${cand.table.replace(/"/g, '""')}" LIMIT 5000`);
+          for (const row of rows) {
+            const mapped = {};
+            cand.cols.forEach((c, i) => mapped[cand.lower[i]] = row[c]);
+            const rawRead = cand.readCol ? mapped[cand.readCol] : null;
+            const rawStatus = cand.statusCol ? mapped[cand.statusCol] : null;
+
+            // Special-case: book_read_link uses read_status numeric flags
+            if (String(cand.table).toLowerCase() === 'book_read_link') {
+              const rs = mapped['read_status'] ?? mapped['readstatus'] ?? rawStatus;
+              if (rs == null) continue;
+              // only consider read_status === 1 as 'read'
+              if (String(rs) !== '1') continue;
+              const readAt = normalizeDate(mapped['last_modified'] || '');
+              const user = cand.userCol ? mapped[cand.userCol] : 'unbekannt';
+              const bookId = cand.bookCol ? mapped[cand.bookCol] : null;
+              results.push({
+                user: String(user ?? 'unbekannt'),
+                book_id: Number(bookId ?? 0) || String(bookId ?? ''),
+                read_at: readAt,
+                status: 'read',
+                source_table: cand.table
+              });
+              continue;
+            }
+
+            // Normalize status: map numeric/boolean markers to 'read'/'unread'
+            let statusValue = rawStatus;
+            if (statusValue == null) {
+              statusValue = rawRead ? 'read' : '';
+            } else {
+              const s = String(statusValue).toLowerCase();
+              if (s === '1' || s === 'true' || /read|done|finished|complete/.test(s)) statusValue = 'read';
+              else if (s === '0' || s === 'false' || /unread|incomplete/.test(s)) statusValue = 'unread';
+            }
+
+            // If we don't have an explicit read timestamp, prefer common fallback columns
+            const fallbackDate = rawRead || mapped['last_time_started_reading'] || mapped['last_modified'] || mapped['date_added'] || mapped['priority_timestamp'] || mapped[findFirst(cand.lower, [/date/, /timestamp/, /time/])] || '';
+            const readAt = normalizeDate(fallbackDate || '');
+
+            const looksRead = (rawRead !== null && rawRead !== '') || statusValue === 'read';
+            if (!looksRead) continue;
+
+            const user = cand.userCol ? mapped[cand.userCol] : 'unbekannt';
+            const bookId = cand.bookCol ? mapped[cand.bookCol] : null;
+            results.push({
+              user: String(user ?? 'unbekannt'),
+              book_id: Number(bookId ?? 0) || String(bookId ?? ''),
+              read_at: readAt,
+              status: String(statusValue ?? (rawRead ? 'read' : '')),
+              source_table: cand.table
+            });
+          }
+        }
+
+        const unique = [];
+        const seen = new Set();
+        for (const row of results) {
+          const key = [row.user, row.book_id, row.read_at, row.status].join('|');
+          if (!seen.has(key)) { seen.add(key); unique.push(row); }
+        }
+        return unique;
+      }
+
+      function mergeEntries(entries) {
+        state.entries = entries.map(entry => {
+          const meta = state.metadata.get(Number(entry.book_id)) || state.metadata.get(String(entry.book_id)) || {};
+          const rawUser = entry.user;
+          const userName = (state.userMap && (state.userMap.get(String(rawUser)) || state.userMap.get(Number(rawUser)))) || rawUser || 'unbekannt';
+          return {
+            user: userName,
+            book_id: entry.book_id,
+            read_at: normalizeDate(entry.read_at),
+            title: (meta && meta.title) || entry.title || `Buch ${entry.book_id || '—'}`,
+            authors: entry.authors || meta.authors || '',
+            series: entry.series || meta.series || '',
+            status: entry.status || 'read',
+            source_table: entry.source_table || ''
+          };
+        });
+        render();
+      }
+
+      function formatDate(value) {
+        if (!value) return '—';
+        const date = new Date(value.replace(' ', 'T'));
+        if (Number.isNaN(date.getTime())) return value;
+        return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+      }
+
+      function filterEntries() {
+        const q = state.search.trim().toLowerCase();
+        return state.entries.filter(entry => {
+          if (state.activeUser !== '__all__' && entry.user !== state.activeUser) return false;
+          if (state.fromDate && (!entry.read_at || entry.read_at.slice(0, 10) < state.fromDate)) return false;
+          if (state.toDate && (!entry.read_at || entry.read_at.slice(0, 10) > state.toDate)) return false;
+          if (!q) return true;
+          const hay = [entry.title, entry.authors, entry.series, entry.user, entry.status].join(' ').toLowerCase();
+          return hay.includes(q);
+        }).sort((a, b) => {
+          const ad = a.read_at || '';
+          const bd = b.read_at || '';
+          if (state.sort === 'read_asc') return ad.localeCompare(bd);
+          if (state.sort === 'title_asc') return (a.title || '').localeCompare(b.title || '', 'de');
+          if (state.sort === 'author_asc') return (a.authors || '').localeCompare(b.authors || '', 'de');
+          return bd.localeCompare(ad);
+        });
+      }
+
+      function updateUserSelect() {
+        const users = [...new Set(state.entries.map(e => e.user).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+        const options = ['<option value="__all__">Alle Nutzer</option>', ...users.map(u => `<option value="${String(u).replace(/"/g, '&quot;')}">${u}</option>`)].join('');
+        els.userSelect.innerHTML = options;
+        els.userSelect.value = users.includes(state.activeUser) ? state.activeUser : '__all__';
+      }
+
+      function renderBadges() {
+        const users = new Set(state.entries.map(e => e.user));
+        const tables = new Set(state.entries.map(e => e.source_table).filter(Boolean));
+        const withDetails = state.entries.filter(e => e.title && !String(e.title).startsWith('Buch ')).length;
+        els.statusBadges.innerHTML = [
+          `<span class="badge">${users.size} Nutzer</span>`,
+          `<span class="badge">${state.entries.length} gelesene Bücher</span>`,
+          `<span class="badge">${withDetails} mit Titelinfos</span>`,
+          ...[...tables].slice(0, 3).map(t => `<span class="badge">Quelle: ${t}</span>`)
+        ].join('');
+      }
+
+      function render() {
+        updateUserSelect();
+        renderBadges();
+        const rows = filterEntries();
+        els.resultsBody.innerHTML = rows.map(entry => `
+          <tr>
+            <td>${entry.user}</td>
+            <td><div class="book-title">${entry.title}</div><div class="meta">ID ${entry.book_id || '—'}</div></td>
+            <td>${entry.authors || '—'}</td>
+            <td>${entry.series || '—'}</td>
+            <td>${formatDate(entry.read_at)}</td>
+            <td>${toTitleCase(entry.status || 'read')}</td>
+          </tr>
+        `).join('');
+        els.emptyState.style.display = rows.length ? 'none' : 'block';
+        els.tableInfo.textContent = rows.length ? `${rows.length} Einträge in der aktuellen Ansicht.` : 'Keine passenden Einträge.';
+        els.statUsers.textContent = new Set(state.entries.map(e => e.user)).size;
+        els.statReads.textContent = state.entries.length;
+        els.statDetails.textContent = state.entries.filter(e => e.title && !String(e.title).startsWith('Buch ')).length;
+      }
+
+      async function loadSqlJs() {
+        if (!window.initSqlJs) throw new Error('SQL.js wurde nicht geladen.');
+        return window.initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+      }
+
+      async function parseDbFile(file, mode) {
+        const SQL = await loadSqlJs();
+        const buf = await file.arrayBuffer();
+        const db = new SQL.Database(new Uint8Array(buf));
+        if (mode === 'metadata') {
+          state.metadata = buildMetadataMap(db);
+          mergeEntries(state.entries);
+          return;
+        }
+        // build user map from app.db so we can show names instead of IDs
+        state.userMap = buildUserMap(db);
+        const entries = detectReadEntries(db);
+        mergeEntries(entries);
+      }
+
+      els.appDbFile.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        els.tableInfo.textContent = 'Lese app.db …';
+        try { await parseDbFile(file, 'app'); }
+        catch (err) { els.tableInfo.textContent = `Fehler beim Lesen von app.db: ${err.message}`; }
+      });
+
+      els.metadataDbFile.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        els.tableInfo.textContent = 'Lese metadata.db …';
+        try { await parseDbFile(file, 'metadata'); }
+        catch (err) { els.tableInfo.textContent = `Fehler beim Lesen von metadata.db: ${err.message}`; }
+      });
+
+      els.userSelect.addEventListener('change', e => { state.activeUser = e.target.value; render(); });
+      els.searchInput.addEventListener('input', e => { state.search = e.target.value; render(); });
+      els.sortSelect.addEventListener('change', e => { state.sort = e.target.value; render(); });
+      els.fromDate.addEventListener('change', e => { state.fromDate = e.target.value; render(); });
+      els.toDate.addEventListener('change', e => { state.toDate = e.target.value; render(); });
+      els.runBtn.addEventListener('click', async () => {
+        try {
+          if (!els.appDbFile.files?.[0]) throw new Error('Bitte zuerst app.db auswählen.');
+          els.tableInfo.textContent = 'Auswertung läuft …';
+          await parseDbFile(els.appDbFile.files[0], 'app');
+          if (els.metadataDbFile.files?.[0]) await parseDbFile(els.metadataDbFile.files[0], 'metadata');
+          if (!state.entries.length) els.tableInfo.textContent = 'Keine passenden Lesestatus-Einträge gefunden. Prüfe Tabellen/Spalten in app.db.';
+        } catch (err) {
+          els.tableInfo.textContent = `Fehler: ${err.message}`;
+        }
+      });
+      els.clearBtn.addEventListener('click', () => {
+        state.entries = []; state.metadata = new Map(); state.activeUser = '__all__'; state.search = ''; state.sort = 'read_desc'; state.fromDate = ''; state.toDate = '';
+        els.searchInput.value = ''; els.sortSelect.value = 'read_desc'; els.fromDate.value = ''; els.toDate.value = ''; els.appDbFile.value = ''; els.metadataDbFile.value = '';
+        render();
+      });
+      
+
+      render();
+    })();
+  </script>
 </body>
 </html>
