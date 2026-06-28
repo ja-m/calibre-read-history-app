@@ -124,7 +124,7 @@
         <div>
           <div class="brand-title">Read History</div>
           <div class="brand-sub">Calibre-Web Lesestatus lokal prüfen</div>
-        <div class="brand-sub" id="appVersion">Version 1.1.1</div>
+        <div class="brand-sub" id="appVersion">Version 1.1.0</div>
         </div>
       </div>
 
@@ -133,7 +133,6 @@
         <div class="nav-list">
           <a class="nav-link active" href="#dashboard">Gelesene Bücher</a>
           <a class="nav-link" href="#import">Import-Hilfe</a>
-          <a class="nav-link" href="#about">Über</a>
         </div>
       </div>
 
@@ -159,7 +158,6 @@
         <div class="toolbar" style="margin-top: var(--space-3);">
           <button class="btn btn-primary" id="runBtn">Auswertung starten</button>
           <button class="btn btn-ghost" id="clearBtn">Zurücksetzen</button>
-          <button class="btn" id="diagnoseBtn">Diagnose</button>
         </div>
       </div>
 
@@ -224,44 +222,7 @@
           </div>
         </article>
 
-        <article class="main-card">
-          <div class="split">
-            <div>
-              <h2 class="card-title">SQL.js Fallback</h2>
-              <p class="hint">Falls Dateizugriff blockiert ist oder du testen willst, kannst du JSON mit bereits extrahierten Einträgen einfügen.</p>
-            </div>
-          </div>
-          <div class="field">
-            <label for="jsonInput">JSON-Import</label>
-            <textarea class="textarea" id="jsonInput" spellcheck="false">[
-  {
-    "user": "anna",
-    "book_id": 42,
-    "read_at": "2026-05-21 19:12:00",
-    "title": "Project Hail Mary",
-    "authors": "Andy Weir",
-    "series": "",
-    "status": "read"
-  }
-]</textarea>
-          </div>
-          <div class="toolbar">
-            <button class="btn" id="jsonImportBtn">JSON übernehmen</button>
-          </div>
-        </article>
-      </section>
-
-      <section class="main-card" id="about">
-        <div class="split">
-          <div>
-            <h2 class="card-title">Über</h2>
-            <p class="hint">Diese App liest lokale Calibre-Web-Datenbankdateien und zeigt gelesene Bücher pro Nutzer an.</p>
-            <p class="hint">Die Datei ist hier verfügbar: <a href="https://github.com/ja-m/calibre-read-history-app/blob/main/calibre-read-history-app.html" target="_blank" rel="noreferrer noopener">calibre-read-history-app.html</a></p>
-          </div>
-          <div class="toolbar mobile-only">
-            <button class="btn btn-ghost" onclick="window.scrollTo({top:0, behavior:'smooth'})">Nach oben</button>
-          </div>
-        </div>
+        
       </section>
 
       <section class="main-card">
@@ -299,7 +260,6 @@
             <tbody id="resultsBody"></tbody>
           </table>
           <div class="empty" id="emptyState">Bitte app.db laden oder Demo starten.</div>
-          <pre id="debugOutput" style="display:none; padding:1rem; border-top:1px solid oklch(from var(--color-text) l c h / 0.08); background: var(--color-surface-2); white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.9rem;"></pre>
         </div>
       </section>
     </main>
@@ -335,8 +295,6 @@
         statReads: document.getElementById('statReads'),
         statDetails: document.getElementById('statDetails'),
         statusBadges: document.getElementById('statusBadges'),
-        jsonInput: document.getElementById('jsonInput'),
-        jsonImportBtn: document.getElementById('jsonImportBtn'),
         runBtn: document.getElementById('runBtn'),
         clearBtn: document.getElementById('clearBtn'),
         themeToggle: document.querySelector('[data-theme-toggle]')
@@ -459,6 +417,25 @@
             cand.cols.forEach((c, i) => mapped[cand.lower[i]] = row[c]);
             const rawRead = cand.readCol ? mapped[cand.readCol] : null;
             const rawStatus = cand.statusCol ? mapped[cand.statusCol] : null;
+
+            // Special-case: book_read_link uses read_status numeric flags
+            if (String(cand.table).toLowerCase() === 'book_read_link') {
+              const rs = mapped['read_status'] ?? mapped['readstatus'] ?? rawStatus;
+              if (rs == null) continue;
+              // only consider read_status === 1 as 'read'
+              if (String(rs) !== '1') continue;
+              const readAt = normalizeDate(mapped['last_modified'] || '');
+              const user = cand.userCol ? mapped[cand.userCol] : 'unbekannt';
+              const bookId = cand.bookCol ? mapped[cand.bookCol] : null;
+              results.push({
+                user: String(user ?? 'unbekannt'),
+                book_id: Number(bookId ?? 0) || String(bookId ?? ''),
+                read_at: readAt,
+                status: 'read',
+                source_table: cand.table
+              });
+              continue;
+            }
 
             // Normalize status: map numeric/boolean markers to 'read'/'unread'
             let statusValue = rawStatus;
@@ -640,76 +617,7 @@
         els.searchInput.value = ''; els.sortSelect.value = 'read_desc'; els.fromDate.value = ''; els.toDate.value = ''; els.appDbFile.value = ''; els.metadataDbFile.value = '';
         render();
       });
-      els.jsonImportBtn.addEventListener('click', () => {
-        try {
-          const data = JSON.parse(els.jsonInput.value);
-          if (!Array.isArray(data)) throw new Error('JSON muss ein Array sein.');
-          mergeEntries(data);
-        } catch (err) {
-          els.tableInfo.textContent = `JSON-Fehler: ${err.message}`;
-        }
-      });
-
-      async function diagnoseDb(file) {
-        try {
-          const SQL = await loadSqlJs();
-          const buf = await file.arrayBuffer();
-          const db = new SQL.Database(new Uint8Array(buf));
-          const tables = listTables(db);
-          const out = [];
-          out.push(`Found tables (${tables.length}): ${tables.join(', ')}`);
-          for (const t of tables) {
-            const cols = tableColumns(db, t).map(c => `${c.name}:${c.type}`).join(', ');
-            out.push(`\nTable: ${t}`);
-            out.push(`Columns: ${cols}`);
-            try {
-              const sample = sqlRows(db, `SELECT * FROM "${t.replace(/"/g,'""')}" LIMIT 5`);
-              out.push(`Sample rows (${sample.length}):`);
-              sample.forEach((r, i) => out.push(`  #${i+1} ${JSON.stringify(r)}`));
-            } catch (e) {
-              out.push(`  (could not read rows: ${e.message})`);
-            }
-          }
-
-          // Run detection and show candidate info
-          const candidates = [];
-          for (const table of tables) {
-            const cols = tableColumns(db, table).map(c => c.name);
-            const lower = cols.map(c => c.toLowerCase());
-            const readCol = findFirst(lower, [/^read$/, /read.*(date|at|time)/, /(date|timestamp).*(read|finish|complete)/, /(is_)?read/]);
-            const userCol = findFirst(lower, [/user/, /username/, /name/]);
-            const bookCol = findFirst(lower, [/book_id/, /^book$/, /books_id/, /id_book/]);
-            const statusCol = findFirst(lower, [/status/, /state/, /progress/, /read/]);
-            if ((readCol || statusCol) && (userCol || table.toLowerCase().includes('read') || table.toLowerCase().includes('user')) && (bookCol || table.toLowerCase().includes('book'))) {
-              candidates.push({ table, cols, lower, readCol, userCol, bookCol, statusCol });
-            }
-          }
-          out.push(`\nDetection candidates: ${candidates.length}`);
-          candidates.forEach(c => out.push(`  - ${c.table}: read=${c.readCol} user=${c.userCol} book=${c.bookCol} status=${c.statusCol}`));
-
-          // Also run the same detection to show actual detected rows (samples)
-          try {
-            const detected = detectReadEntries(db);
-            out.push(`\nDetected read entries: ${detected.length}`);
-            detected.slice(0, 10).forEach((d, i) => out.push(`  #${i+1} ${JSON.stringify(d)}`));
-          } catch (e) {
-            out.push(`\nCould not run detectReadEntries: ${e.message}`);
-          }
-
-          document.getElementById('debugOutput').textContent = out.join('\n');
-          document.getElementById('debugOutput').style.display = 'block';
-          els.tableInfo.textContent = 'Diagnose abgeschlossen. Debug-Ausgabe unten.';
-        } catch (err) {
-          els.tableInfo.textContent = `Diagnose-Fehler: ${err.message}`;
-        }
-      }
-
-      document.getElementById('diagnoseBtn').addEventListener('click', async () => {
-        const f = els.appDbFile.files?.[0];
-        if (!f) { els.tableInfo.textContent = 'Bitte zuerst app.db auswählen.'; return; }
-        els.tableInfo.textContent = 'Diagnose läuft …';
-        await diagnoseDb(f);
-      });
+      
 
       render();
     })();
